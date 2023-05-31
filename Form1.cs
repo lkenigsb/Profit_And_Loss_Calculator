@@ -149,16 +149,16 @@ namespace FinanceTermProjectS23
         private void listBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
             tickerSelected = ticker_list.SelectedItem;
-            ImpliedChanges.Rows.Add(tickerSelected, "0000", "999");
+            //ImpliedChanges.Rows.Add(tickerSelected, "0000", "999");
 
-            ImpliedChanges.AutoGenerateColumns = true;
+            //ImpliedChanges.AutoGenerateColumns = true;
 
-            ImpliedChanges.Columns["Ticker"].DefaultCellStyle.Format = "c";
+            //ImpliedChanges.Columns["Ticker"].DefaultCellStyle.Format = "c";
 
-            ImpliedChanges.Columns["Values"].DefaultCellStyle.Format = "#,###";
+            //ImpliedChanges.Columns["Values"].DefaultCellStyle.Format = "#,###";
 
-            ImpliedChanges.Columns["Profit_Loss"].DefaultCellStyle.Format = "#,###";
-            ImpliedChanges.AllowUserToAddRows = false;
+            //ImpliedChanges.Columns["Profit_Loss"].DefaultCellStyle.Format = "#,###";
+            //ImpliedChanges.AllowUserToAddRows = false;
         }
          
 
