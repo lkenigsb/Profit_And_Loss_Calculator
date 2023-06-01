@@ -4,6 +4,7 @@ using System.Data;
 using System.Windows.Forms;
 using System.Data.SqlClient;
 using System.Collections.Generic;
+using System.Drawing;
 
 namespace FinanceTermProjectS23
 {
@@ -33,8 +34,8 @@ namespace FinanceTermProjectS23
                 //  typical connection string:
                 //      sqlCon = new SqlConnection("Server=DESKTOP-17VOE83;Database=Finance;Trusted_Connection=True;");
                 String strConnect = $"Server={strServer};Database={strDatabase};Trusted_Connection=True;";
-
-                using (SqlConnection con = new SqlConnection(strConnect))
+                SqlConnection con;
+                using (con = new SqlConnection(strConnect))
                 {
                     con.Open();
                     string query = "SELECT DISTINCT Ticker FROM Stock";
@@ -50,6 +51,7 @@ namespace FinanceTermProjectS23
                         }
                     }
                 }
+                con.Close();
             }
             catch (Exception ex)
             {
@@ -149,6 +151,51 @@ namespace FinanceTermProjectS23
         private void listBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
             tickerSelected = ticker_list.SelectedItem;
+
+            SqlConnection sqlCon = null;  // connection to DB
+            Double d = 0.0;
+
+            try
+            {
+                /* get database parameters from App.config file */
+                String strServer = ConfigurationManager.AppSettings["server"];
+                String strDatabase = ConfigurationManager.AppSettings["database"];
+
+                /* open a connection to database */
+                //  typical connection string:
+                //      sqlCon = new SqlConnection("Server=DESKTOP-17VOE83;Database=Finance;Trusted_Connection=True;");
+                String strConnect = $"Server={strServer};Database={strDatabase};Trusted_Connection=True;";
+
+                Object ogHedgePrice;
+
+                using (SqlConnection con = new SqlConnection(strConnect))
+                {
+                    con.Open();
+                    string query = "SELECT TOP (1) Closing_Price FROM Stock WHERE Ticker = '" + tickerSelected + "' ORDER BY Stock_Date DESC";
+
+                    using (SqlCommand cmd = new SqlCommand(query, con))
+                    {
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                ogHedgePrice = reader[0];
+                                if (ogHedgePrice is IConvertible)
+                                {
+                                    d = ((IConvertible)ogHedgePrice).ToDouble(null);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+            PriceTextBox.Clear();
+            PriceTextBox.AppendText(d + "");
+
             //ImpliedChanges.Rows.Add(tickerSelected, "0000", "999");
 
             //ImpliedChanges.AutoGenerateColumns = true;
@@ -168,13 +215,103 @@ namespace FinanceTermProjectS23
             //And manually add columns and rows to DGV (LOOK AT DGV documentation
             //https://learn.microsoft.com/en-us/dotnet/api/system.windows.forms.datagridview?view=windowsdesktop-7.0
 
-            //format ImpliedChanges data grid view
-            ImpliedChanges.Columns["Ticker"].DefaultCellStyle.Format = "c";
+            //double hedgeFromUser = 4100.00;
+            double hedgeFromUser = Double.Parse(PriceTextBox.Text);
 
-            ImpliedChanges.Columns["Values"].DefaultCellStyle.Format = "#,###";
+            //With 100 shares valued at 17257, a current hedge or 4136
+            // now the user wants to know what will happen when the hedge drops to 4100 
 
-            ImpliedChanges.Columns["Profit_Loss"].DefaultCellStyle.Format = "#,###";
-            ImpliedChanges.AllowUserToAddRows = false;
+            //GET LATEST CLOSING PRICE
+            SqlConnection sqlCon = null;  // connection to DB
+            Double d = 0.0;
+
+            try
+            {
+                /* get database parameters from App.config file */
+                String strServer = ConfigurationManager.AppSettings["server"];
+                String strDatabase = ConfigurationManager.AppSettings["database"];
+
+                /* open a connection to database */
+                //  typical connection string:
+                //      sqlCon = new SqlConnection("Server=DESKTOP-17VOE83;Database=Finance;Trusted_Connection=True;");
+                String strConnect = $"Server={strServer};Database={strDatabase};Trusted_Connection=True;";
+
+                Object ogHedgePrice;
+
+                SqlConnection con = new SqlConnection(strConnect);
+                
+                con.Open();
+                string query = "SELECT TOP (1) Closing_Price FROM Stock WHERE Ticker = '" + tickerSelected + "' ORDER BY Stock_Date DESC";
+
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            ogHedgePrice = reader[0];
+                            if (ogHedgePrice is IConvertible)
+                            {
+                                d = ((IConvertible)ogHedgePrice).ToDouble(null);
+                            }
+                        }
+                    }
+                }
+                
+
+                //STEP 1:  Δ𝐻 = 𝑛𝑒𝑤 ℎ𝑒𝑑𝑔𝑒 𝑝𝑟𝑖𝑐𝑒 ― 𝑜𝑟𝑖𝑔𝑖𝑛𝑎𝑙 ℎ𝑒𝑑𝑔𝑒 𝑝𝑟𝑖𝑐𝑒
+                double hedgeDifference = Double.Parse(PriceTextBox.Text) - d;
+
+
+                //STEP 2: δH = Relative Change in hedge price 𝛿𝐻 = 𝛥𝐻
+                //      𝑜𝑟𝑖𝑔𝑖𝑛𝑎𝑙 ℎ𝑒𝑑𝑔𝑒 𝑝𝑟𝑖𝑐𝑒 
+                double relativeChange = hedgeDifference / d;
+
+
+                //STEP 3: 𝛿𝑃 = 𝛿𝐻 ⋅ 𝛽 (𝑟𝑒𝑙𝑎𝑡𝑖𝑣𝑒 𝑐ℎ𝑎𝑛𝑔𝑒 𝑖𝑛 𝑡ℎ𝑒 𝑝𝑟𝑖𝑐𝑒 𝑜𝑓 𝑒𝑞𝑢𝑖𝑡𝑦)
+                //Suppose calculated 𝛽 = 1.244 - can we use this?
+                //TODO: Emailed Dr. K to ask about this 
+                double sP /* = 1.244 * (relativeChange) */= -1.097;
+
+                //STEP 4: Find expected new price of the equity 
+                //𝑃1 = (1 + 𝛿𝑃) ⋅ [𝐿𝑎𝑡𝑒𝑠𝑡 𝐶𝑙𝑜𝑠𝑒 𝑃𝑟𝑖𝑐𝑒 = 𝑃]
+                //en 𝑃1 = 𝐸𝑥𝑝𝑒𝑐𝑡𝑒𝑑 𝑝𝑟𝑖𝑐𝑒 𝑜𝑓 𝐴𝑃𝑃𝐿 = (1 ― 1.097%) ⋅ 172.573≅170.68
+                double expectedPrice = 170.68;
+
+                //STEP 5: Fill the values column 
+                //multiply this times num shares to populate the Values column 
+                //double impliedValues = expectedPrice * posShares;
+
+
+                //STEP 6: Fill the P/L column 
+                //𝑃/ 𝐿 = (𝑃1 ― 𝑃) 𝑝𝑒𝑟𝑠ℎ𝑎𝑟𝑒 WHERE P = Latest Close Price 
+                //𝑃 / 𝐿 = 100 (𝑠ℎ𝑎𝑟𝑒𝑠) ∗ (170.68 – 172.57)≅ ― 189.00
+                //     double pL = posShares * (expectedPrice - originalPricePerShare);
+
+                Double valueTickerAapl = Convert.ToDouble(Positions.Rows[0].Cells[2].Value);
+                Double valueTickerGld = Convert.ToDouble(Positions.Rows[1].Cells[2].Value);
+                Double valueTickerNflx = Convert.ToDouble(Positions.Rows[2].Cells[2].Value);
+                Double valueTickerTsla = Convert.ToDouble(Positions.Rows[3].Cells[2].Value);
+                //Double valueTickerAapl = Convert.ToDouble(Positions.Rows[0].Cells[2].Value);
+
+
+                //ImpliedChanges.Rows.Add(tickerSelected, "0000", "999");
+
+
+                //format ImpliedChanges data grid view
+                ImpliedChanges.Columns["Ticker"].DefaultCellStyle.Format = "c";
+
+                ImpliedChanges.Columns["Values"].DefaultCellStyle.Format = "#,###";
+
+                ImpliedChanges.Columns["Profit_Loss"].DefaultCellStyle.Format = "#,###";
+                ImpliedChanges.AllowUserToAddRows = false;
+
+                con.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
         }
 
         private void impliedChangeLabel_Click(object sender, EventArgs e)
