@@ -5,6 +5,8 @@ using System.Windows.Forms;
 using System.Data.SqlClient;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Data.SqlTypes;
+using System.Linq;
 
 namespace FinanceTermProjectS23
 {
@@ -100,8 +102,6 @@ namespace FinanceTermProjectS23
                 da.Fill(dataset, "Positions");
                     
                 Positions.DataSource = dataset.Tables["Positions"];
-
-                //How to remove left column + sums from DGV using positions.
 
                 Positions.AutoGenerateColumns = true;
 
@@ -267,35 +267,55 @@ namespace FinanceTermProjectS23
                 //      𝑜𝑟𝑖𝑔𝑖𝑛𝑎𝑙 ℎ𝑒𝑑𝑔𝑒 𝑝𝑟𝑖𝑐𝑒 
                 double relativeChange = hedgeDifference / d;
 
-
-                //STEP 3: 𝛿𝑃 = 𝛿𝐻 ⋅ 𝛽 (𝑟𝑒𝑙𝑎𝑡𝑖𝑣𝑒 𝑐ℎ𝑎𝑛𝑔𝑒 𝑖𝑛 𝑡ℎ𝑒 𝑝𝑟𝑖𝑐𝑒 𝑜𝑓 𝑒𝑞𝑢𝑖𝑡𝑦)
-                //Suppose calculated 𝛽 = 1.244 - can we use this?
-                //TODO: Emailed Dr. K to ask about this 
-                double sP /* = 1.244 * (relativeChange) */= -1.097;
-
-                //STEP 4: Find expected new price of the equity 
-                //𝑃1 = (1 + 𝛿𝑃) ⋅ [𝐿𝑎𝑡𝑒𝑠𝑡 𝐶𝑙𝑜𝑠𝑒 𝑃𝑟𝑖𝑐𝑒 = 𝑃]
-                //en 𝑃1 = 𝐸𝑥𝑝𝑒𝑐𝑡𝑒𝑑 𝑝𝑟𝑖𝑐𝑒 𝑜𝑓 𝐴𝑃𝑃𝐿 = (1 ― 1.097%) ⋅ 172.573≅170.68
-                double expectedPrice = 170.68;
-
-                //STEP 5: Fill the values column 
-                //multiply this times num shares to populate the Values column 
-                //double impliedValues = expectedPrice * posShares;
+                for (int i = 0; i < ticker_list.Items.Count; i++)
+                {
+                    float betaParem;
+                    /* set up a call to spGetPrcForSymbol stored procedure */
+                    SqlCommand sqlCmd = new SqlCommand("spCalculateBeta", con);
+                    sqlCmd.CommandType = CommandType.StoredProcedure;
+                    sqlCmd.Parameters.Add("@Ticker1", System.Data.SqlDbType.VarChar).Value = tickerSelected;
+                    sqlCmd.Parameters.Add("@Ticker2", System.Data.SqlDbType.VarChar).Value = ticker_list.Items[i].ToString();
+                    sqlCmd.Parameters.Add("@OutputBeta", SqlDbType.Float).Value = betaParem;
+                    sqlCmd.Parameters["@OutputBeta"].Direction = ParameterDirection.Output;
 
 
-                //STEP 6: Fill the P/L column 
-                //𝑃/ 𝐿 = (𝑃1 ― 𝑃) 𝑝𝑒𝑟𝑠ℎ𝑎𝑟𝑒 WHERE P = Latest Close Price 
-                //𝑃 / 𝐿 = 100 (𝑠ℎ𝑎𝑟𝑒𝑠) ∗ (170.68 – 172.57)≅ ― 189.00
-                //     double pL = posShares * (expectedPrice - originalPricePerShare);
-
-                Double valueTickerAapl = Convert.ToDouble(Positions.Rows[0].Cells[2].Value);
-                Double valueTickerGld = Convert.ToDouble(Positions.Rows[1].Cells[2].Value);
-                Double valueTickerNflx = Convert.ToDouble(Positions.Rows[2].Cells[2].Value);
-                Double valueTickerTsla = Convert.ToDouble(Positions.Rows[3].Cells[2].Value);
-                //Double valueTickerAapl = Convert.ToDouble(Positions.Rows[0].Cells[2].Value);
+                    string str = sqlCmd.ExecuteScalar().ToString();
+                    float beta = (float)System.Convert.ToSingle(str);
 
 
-                //ImpliedChanges.Rows.Add(tickerSelected, "0000", "999");
+                    //STEP 3: 𝛿𝑃 = 𝛿𝐻 ⋅ 𝛽 (𝑟𝑒𝑙𝑎𝑡𝑖𝑣𝑒 𝑐ℎ𝑎𝑛𝑔𝑒 𝑖𝑛 𝑡ℎ𝑒 𝑝𝑟𝑖𝑐𝑒 𝑜𝑓 𝑒𝑞𝑢𝑖𝑡𝑦)
+                    //Suppose calculated 𝛽 = 1.244 - can we use this?
+                    //TODO: Emailed Dr. K to ask about this 
+                    double sP = relativeChange * beta;
+
+
+                    //STEP 4: Find expected new price of the equity 
+                    //𝑃1 = (1 + 𝛿𝑃) ⋅ [𝐿𝑎𝑡𝑒𝑠𝑡 𝐶𝑙𝑜𝑠𝑒 𝑃𝑟𝑖𝑐𝑒 = 𝑃]
+                    //en 𝑃1 = 𝐸𝑥𝑝𝑒𝑐𝑡𝑒𝑑 𝑝𝑟𝑖𝑐𝑒 𝑜𝑓 𝐴𝑃𝑃𝐿 = (1 ― 1.097%) ⋅ 172.573≅170.68
+                    Double valueTickerAapl = Convert.ToDouble(Positions.Rows[i].Cells[2].Value);
+                    double expectedPrice = (1 + sP) * valueTickerAapl;
+
+                    //STEP 5: Fill the values column 
+                    //multiply this times num shares to populate the Values column 
+                    //double impliedValues = expectedPrice * posShares;
+
+
+                    //STEP 6: Fill the P/L column 
+                    //𝑃/ 𝐿 = (𝑃1 ― 𝑃) 𝑝𝑒𝑟𝑠ℎ𝑎𝑟𝑒 WHERE P = Latest Close Price 
+                    //𝑃 / 𝐿 = 100 (𝑠ℎ𝑎𝑟𝑒𝑠) ∗ (170.68 – 172.57)≅ ― 189.00
+                    //     double pL = posShares * (expectedPrice - originalPricePerShare);
+                    double pL = expectedPrice - valueTickerAapl;
+
+                    ImpliedChanges.Rows.Add(ticker_list.Items[0].ToString(), expectedPrice, pL);
+
+                }
+                ////Double valueTickerAapl = Convert.ToDouble(Positions.Rows[0].Cells[2].Value);
+                //Double valueTickerGld = Convert.ToDouble(Positions.Rows[1].Cells[2].Value);
+                //Double valueTickerNflx = Convert.ToDouble(Positions.Rows[2].Cells[2].Value);
+                //Double valueTickerTsla = Convert.ToDouble(Positions.Rows[3].Cells[2].Value);
+                ////Double valueTickerAapl = Convert.ToDouble(Positions.Rows[0].Cells[2].Value);
+
+
 
 
                 //format ImpliedChanges data grid view
