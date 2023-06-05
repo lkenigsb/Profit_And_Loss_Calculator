@@ -260,54 +260,59 @@ namespace FinanceTermProjectS23
                 
 
                 //STEP 1:  Δ𝐻 = 𝑛𝑒𝑤 ℎ𝑒𝑑𝑔𝑒 𝑝𝑟𝑖𝑐𝑒 ― 𝑜𝑟𝑖𝑔𝑖𝑛𝑎𝑙 ℎ𝑒𝑑𝑔𝑒 𝑝𝑟𝑖𝑐𝑒
-                double hedgeDifference = Double.Parse(PriceTextBox.Text) - d;
+                double hedgeDifference = hedgeFromUser - d;
 
 
                 //STEP 2: δH = Relative Change in hedge price 𝛿𝐻 = 𝛥𝐻
                 //      𝑜𝑟𝑖𝑔𝑖𝑛𝑎𝑙 ℎ𝑒𝑑𝑔𝑒 𝑝𝑟𝑖𝑐𝑒 
                 double relativeChange = hedgeDifference / d;
 
-                for (int i = 0; i < ticker_list.Items.Count; i++)
+                for (int i = 0; i < Positions.RowCount; i++)
                 {
-                    float betaParem;
-                    /* set up a call to spGetPrcForSymbol stored procedure */
-                    SqlCommand sqlCmd = new SqlCommand("spCalculateBeta", con);
-                    sqlCmd.CommandType = CommandType.StoredProcedure;
-                    sqlCmd.Parameters.Add("@Ticker1", System.Data.SqlDbType.VarChar).Value = tickerSelected;
-                    sqlCmd.Parameters.Add("@Ticker2", System.Data.SqlDbType.VarChar).Value = ticker_list.Items[i].ToString();
-                    sqlCmd.Parameters.Add("@OutputBeta", SqlDbType.Float).Value = betaParem;
-                    sqlCmd.Parameters["@OutputBeta"].Direction = ParameterDirection.Output;
+                    String strTicker = Positions.Rows[i].Cells[0].Value.ToString();
+
+                    if (strTicker.CompareTo(tickerSelected) != 0)
+                    {
+
+                        /* set up a call to spGetPrcForSymbol stored procedure */
+                        SqlCommand sqlCmd = new SqlCommand("spCalculateBeta1", con);
+                        sqlCmd.CommandType = CommandType.StoredProcedure;
+                        sqlCmd.Parameters.Add("@Ticker1", System.Data.SqlDbType.VarChar).Value = tickerSelected;
+                        sqlCmd.Parameters.Add("@Ticker2", System.Data.SqlDbType.VarChar).Value = strTicker;
 
 
-                    string str = sqlCmd.ExecuteScalar().ToString();
-                    float beta = (float)System.Convert.ToSingle(str);
+                        string str = sqlCmd.ExecuteScalar().ToString();
+                        float beta = (float)System.Convert.ToSingle(str);
 
 
-                    //STEP 3: 𝛿𝑃 = 𝛿𝐻 ⋅ 𝛽 (𝑟𝑒𝑙𝑎𝑡𝑖𝑣𝑒 𝑐ℎ𝑎𝑛𝑔𝑒 𝑖𝑛 𝑡ℎ𝑒 𝑝𝑟𝑖𝑐𝑒 𝑜𝑓 𝑒𝑞𝑢𝑖𝑡𝑦)
-                    //Suppose calculated 𝛽 = 1.244 - can we use this?
-                    //TODO: Emailed Dr. K to ask about this 
-                    double sP = relativeChange * beta;
+                        //STEP 3: 𝛿𝑃 = 𝛿𝐻 ⋅ 𝛽 (𝑟𝑒𝑙𝑎𝑡𝑖𝑣𝑒 𝑐ℎ𝑎𝑛𝑔𝑒 𝑖𝑛 𝑡ℎ𝑒 𝑝𝑟𝑖𝑐𝑒 𝑜𝑓 𝑒𝑞𝑢𝑖𝑡𝑦)
+                        //Suppose calculated 𝛽 = 1.244 - can we use this?
+                        //TODO: Emailed Dr. K to ask about this 
+                        double sP = relativeChange * beta;
 
 
-                    //STEP 4: Find expected new price of the equity 
-                    //𝑃1 = (1 + 𝛿𝑃) ⋅ [𝐿𝑎𝑡𝑒𝑠𝑡 𝐶𝑙𝑜𝑠𝑒 𝑃𝑟𝑖𝑐𝑒 = 𝑃]
-                    //en 𝑃1 = 𝐸𝑥𝑝𝑒𝑐𝑡𝑒𝑑 𝑝𝑟𝑖𝑐𝑒 𝑜𝑓 𝐴𝑃𝑃𝐿 = (1 ― 1.097%) ⋅ 172.573≅170.68
-                    Double valueTickerAapl = Convert.ToDouble(Positions.Rows[i].Cells[2].Value);
-                    double expectedPrice = (1 + sP) * valueTickerAapl;
+                        //STEP 4: Find expected new price of the equity 
+                        //𝑃1 = (1 + 𝛿𝑃) ⋅ [𝐿𝑎𝑡𝑒𝑠𝑡 𝐶𝑙𝑜𝑠𝑒 𝑃𝑟𝑖𝑐𝑒 = 𝑃]
+                        //en 𝑃1 = 𝐸𝑥𝑝𝑒𝑐𝑡𝑒𝑑 𝑝𝑟𝑖𝑐𝑒 𝑜𝑓 𝐴𝑃𝑃𝐿 = (1 ― 1.097%) ⋅ 172.573≅170.68
+                        Double ogValue = Convert.ToDouble(Positions.Rows[i].Cells[2].Value);
+                        double expectedPrice = (1 + sP) * ogValue;
 
-                    //STEP 5: Fill the values column 
-                    //multiply this times num shares to populate the Values column 
-                    //double impliedValues = expectedPrice * posShares;
+                        //STEP 5: Fill the values column 
+                        //multiply this times num shares to populate the Values column 
+                        //double impliedValues = expectedPrice * posShares;
 
 
-                    //STEP 6: Fill the P/L column 
-                    //𝑃/ 𝐿 = (𝑃1 ― 𝑃) 𝑝𝑒𝑟𝑠ℎ𝑎𝑟𝑒 WHERE P = Latest Close Price 
-                    //𝑃 / 𝐿 = 100 (𝑠ℎ𝑎𝑟𝑒𝑠) ∗ (170.68 – 172.57)≅ ― 189.00
-                    //     double pL = posShares * (expectedPrice - originalPricePerShare);
-                    double pL = expectedPrice - valueTickerAapl;
+                        //STEP 6: Fill the P/L column 
+                        //𝑃/ 𝐿 = (𝑃1 ― 𝑃) 𝑝𝑒𝑟𝑠ℎ𝑎𝑟𝑒 WHERE P = Latest Close Price 
+                        //𝑃 / 𝐿 = 100 (𝑠ℎ𝑎𝑟𝑒𝑠) ∗ (170.68 – 172.57)≅ ― 189.00
+                        //     double pL = posShares * (expectedPrice - originalPricePerShare);
+                        double pL = expectedPrice - ogValue;
 
-                    ImpliedChanges.Rows.Add(ticker_list.Items[0].ToString(), expectedPrice, pL);
+                        ImpliedChanges.Rows.Add(strTicker, expectedPrice, pL);
 
+
+                        sqlCmd.Parameters.Clear();
+                    }
                 }
                 ////Double valueTickerAapl = Convert.ToDouble(Positions.Rows[0].Cells[2].Value);
                 //Double valueTickerGld = Convert.ToDouble(Positions.Rows[1].Cells[2].Value);

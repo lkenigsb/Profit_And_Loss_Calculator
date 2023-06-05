@@ -77,7 +77,11 @@
             // 
             // ImpliedChanges
             // 
-            this.ImpliedChanges.AllowUserToOrderColumns = true;
+            this.ImpliedChanges.AllowUserToAddRows = false;
+            this.ImpliedChanges.AllowUserToDeleteRows = false;
+            this.ImpliedChanges.AllowUserToResizeColumns = false;
+            this.ImpliedChanges.AllowUserToResizeRows = false;
+            this.ImpliedChanges.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
             this.ImpliedChanges.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.ImpliedChanges.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.Ticker,
@@ -96,21 +100,18 @@
             this.Ticker.HeaderText = "Ticker";
             this.Ticker.MinimumWidth = 8;
             this.Ticker.Name = "Ticker";
-            this.Ticker.Width = 150;
             // 
             // Values
             // 
             this.Values.HeaderText = "Values";
             this.Values.MinimumWidth = 8;
             this.Values.Name = "Values";
-            this.Values.Width = 150;
             // 
             // Profit_Loss
             // 
             this.Profit_Loss.HeaderText = "P/L";
             this.Profit_Loss.MinimumWidth = 8;
             this.Profit_Loss.Name = "Profit_Loss";
-            this.Profit_Loss.Width = 150;
             // 
             // PositionsLabel
             // 
